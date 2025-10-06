@@ -1,0 +1,31 @@
+# Arquivos de byte-code do Python
+__pycache__/
+*.py[cod]
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+/bin/
+/include/
+/lib/
+/share/
+
+# Arquivos de cache e metadados do PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Banco de dados
+*.sqlite3
+
+# Arquivos de log e logs do PyCharm
+logs/
+.pycharm_history
+.DS_Store # (opcional, para usuários de macOS)
+
+# Arquivos de dados sensíveis
+.env
+config.py
+secrets.py
