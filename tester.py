@@ -1,13 +1,23 @@
 from Lexico import lexico
-import Sintatico
+from Sintatico import sintatico
 
 if __name__ == '__main__':
-    with open("example.c", "r") as arqFonte:
+    # with open("exampleCorrect.c", "r", encoding="utf-8") as arqFonte:
+    #     lexico = lexico(arqFonte)
+    #     parser = sintatico(lexico)
+    #
+    #     try:
+    #         parser.program()
+    #         print("Programa correto reconhecido com sucesso!")
+    #     except Exception as e:
+    #         print("Erro de sintaxe:", e)
+
+    with open("exampleWrong.c", "r", encoding="utf-8") as arqFonte:
         lexico = lexico(arqFonte)
-        parser = Sintatico.sintatico(lexico)
+        parser = sintatico(lexico)
 
         try:
             parser.program()
-            print("Programa reconhecido com sucesso!")
+            print("Programa errado reconhecido como correto!")
         except Exception as e:
             print("Erro de sintaxe:", e)

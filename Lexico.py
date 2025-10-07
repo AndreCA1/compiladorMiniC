@@ -36,6 +36,16 @@ class lexico:
 
     def imprimirToken(self, tokenCorrente):
         (token, lexema, linha, coluna) = tokenCorrente
+
+        #MOSTRA SÓ ERROS
+        # if token == TOKEN.erro:
+        #     msg = TOKEN.msg(token)
+        #     print(Fore.GREEN + '(tk = ' + Fore.RED + str(msg) +
+        #             Fore.GREEN + ' lex = ' + Fore.YELLOW + str(lexema) +
+        #             Fore.GREEN + ' lin = ' + Fore.RESET + str(linha) +
+        #             Fore.GREEN + ' col = ' + Fore.RESET + str(coluna))
+
+        #MOSTRA TODOS
         msg = TOKEN.msg(token)
 
         if token == TOKEN.erro:
@@ -244,7 +254,7 @@ class lexico:
 
 if __name__ == '__main__':
     init()
-    with open("example.c", "r") as arqFonte:
+    with open("exampleCorrect.c", "r", encoding="utf-8") as arqFonte:
         lexico = lexico(arqFonte)
         token = lexico.getToken()
         while token[0] != TOKEN.fimarquivo:
