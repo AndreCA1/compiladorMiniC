@@ -112,3 +112,41 @@ class TOKEN(IntEnum):
             'return': TOKEN.RETURN,
         }
         return reservadas.get(lexema, TOKEN.ident)
+
+    @classmethod
+    def tabelaOperacoes(cls):
+        return {
+            # operações aritméticas
+            frozenset({(TOKEN.INT, False), TOKEN.mais, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.menos, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.multiplicacao, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.divisao, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.porcentagem, (TOKEN.INT, False)}): (TOKEN.INT, False),
+
+            frozenset({(TOKEN.FLOAT, False), TOKEN.mais, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.menos, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.multiplicacao, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.divisao, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+
+            frozenset({(TOKEN.INT, False), TOKEN.mais, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.menos, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.multiplicacao, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.divisao, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+
+            frozenset({(TOKEN.FLOAT, False), TOKEN.mais, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.menos, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.multiplicacao, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.divisao, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+
+            # operações relacionais
+            frozenset({(TOKEN.INT, False), TOKEN.opRel, (TOKEN.INT, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.INT, False), TOKEN.opRel, (TOKEN.FLOAT, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.opRel, (TOKEN.FLOAT, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.opRel, (TOKEN.INT, False)}): (TOKEN.valorInt, False),
+
+            # operações unárias
+            frozenset({TOKEN.mais, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({TOKEN.menos, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({TOKEN.mais, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({TOKEN.menos, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False)
+        }

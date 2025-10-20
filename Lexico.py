@@ -1,9 +1,7 @@
 from tokens import TOKEN
 from colorama import init, Fore
-import Sintatico
 
-
-class lexico:
+class Lexico:
     def __init__(self, arqFonte):
         self.arqFonte = arqFonte
         self.fonte = self.arqFonte.read()
@@ -254,7 +252,7 @@ class lexico:
 
 if __name__ == '__main__':
     init()
-    with open("exampleCorrect.c", "r", encoding="utf-8") as arqFonte:
+    with open("exampleWrite.c", "r", encoding="utf-8") as arqFonte:
         lexico = lexico(arqFonte)
         token = lexico.getToken()
         while token[0] != TOKEN.fimarquivo:

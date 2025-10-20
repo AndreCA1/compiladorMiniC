@@ -1,23 +1,27 @@
-from Lexico import lexico
-from Sintatico import sintatico
+from Lexico import Lexico
+from Sintatico import Sintatico
 
+class Tradutor:
+    def __init__(self):
+        self.nomeArq = "exampleWrite.c"
+
+    def inicializa(self):
+        self.arq = open(self.nomeArq, "r")
+        self.lexico = Lexico(self.arq)
+        self.sintatico = Sintatico(self.lexico, "./saida.py")
+
+    def traduz(self):
+        self.sintatico.program()
+
+    def finaliza(self):
+        self.arq.close()
+
+# inicia a traducao
 if __name__ == '__main__':
-    # with open("exampleCorrect.c", "r", encoding="utf-8") as arqFonte:
-    #     lexico = lexico(arqFonte)
-    #     parser = sintatico(lexico)
-    #
-    #     try:
-    #         parser.program()
-    #         print("Programa correto reconhecido com sucesso!")
-    #     except Exception as e:
-    #         print("Erro de sintaxe:", e)
-
-    with open("exampleWrong.c", "r", encoding="utf-8") as arqFonte:
-        lexico = lexico(arqFonte)
-        parser = sintatico(lexico)
-
-        try:
-            parser.program()
-            print("Programa errado reconhecido como correto!")
-        except Exception as e:
-            print("Erro de sintaxe:", e)
+    try:
+        x = Tradutor()
+        x.inicializa()
+        x.traduz()
+        x.finaliza()
+    except Exception as e:
+        print(e)

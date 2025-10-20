@@ -1,10 +1,11 @@
 from tokens import TOKEN
-import Lexico
+from Semantico import Semantico
 
-class sintatico:
-    def __init__(self, lexico):
+class Sintatico:
+    def __init__(self, lexico, nomeAlvo):
         self.lexico = lexico
         self.lexico.tokenLido = self.lexico.getToken()
+        self.semantico = Semantico(nomeAlvo)
 
     def consome(self, tokenAtual):
         (token, lexema, linha, coluna) = self.lexico.tokenLido
@@ -44,11 +45,13 @@ class sintatico:
 
     def function(self):
         # Function -> Type ident ( ArgList ) CompoundStmt
-        self.type()
+        tipo = self.type()
+        nome_funcao = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
         self.consome(TOKEN.abreParenteses)
-        self.argList()
+        argumentos = self.argList()
         self.consome(TOKEN.fechaParenteses)
+        self.semantico.declaraFuncao(nome_funcao, tipo, argumentos)
         self.compoundStmt()
 
     def argList(self):
@@ -61,50 +64,58 @@ class sintatico:
         }
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
-
+        args = [{}]
         if token in primeiros_arg:
-            self.arg()
-            self.restoArgList()
+            argumento = self.arg()
+            args.append(argumento)
+            self.restoArgList(args)
+            return args
         elif token == TOKEN.fechaParenteses:
-            return
+            return args
         else:
             print(f'Erro em argList: esperado tipo (int, float, char) ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
-    def restoArgList(self):
+    def restoArgList(self, args):
         # RestoArgList -> , Arg RestoArgList | LAMBDA
-
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.virgula:
             self.consome(TOKEN.virgula)
-            self.arg()
-            self.restoArgList()
+            argumento = self.arg()
+            args.append(argumento)
+            self.restoArgList(args)
         elif token == TOKEN.fechaParenteses:
-            return
+            return args
         else:
             print(f'Erro em restoArgList: esperado vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
+    # Retorna uma tripla (TOKEN.TIPO, nome_arg, True or False)
     def arg(self):
         # Arg -> Type IdentArg
-        self.type()
-        self.identArg()
+        tipo = self.type()
+        nome, vet = self.identArg()
+        return tipo, nome, vet
 
+    #Retorna uma tupla (nome_arg, True or False)
     def identArg(self):
         # IdentArg -> ident OpcIdentArg
+        nome = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
-        self.opcIdentArg()
+        vet = self.opcIdentArg()
+        return nome, vet
 
+    #Retorna True or False se for ou não vetor
     def opcIdentArg(self):
         # OpcIdentArg -> [ ] | LAMBDA
-
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.abreColchetes:
             self.consome(TOKEN.abreColchetes)
             self.consome(TOKEN.fechaColchetes)
-        # LAMBDA
+            return True
         elif token in {TOKEN.virgula, TOKEN.fechaParenteses}:
-            return
+            # LAMBDA
+            return False
         else:
             print(f'Erro em opcIdentArg: esperado abreColchete, vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
@@ -265,10 +276,13 @@ class sintatico:
 
         if token == TOKEN.INT:
             self.consome(TOKEN.INT)
+            return TOKEN.INT
         elif token == TOKEN.FLOAT:
             self.consome(TOKEN.FLOAT)
+            return TOKEN.FLOAT
         elif token == TOKEN.CHAR:
             self.consome(TOKEN.CHAR)
+            return TOKEN.CHAR
         else:
             print(f'Erro em type: esperado int, float ou char, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
@@ -587,12 +601,3 @@ class sintatico:
         else:
             print(f'Erro em restoParams: esperado vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
-
-
-if __name__ == '__main__':
-    with open("exampleCorrect.c", "r", encoding="utf-8") as arqFonte:
-        lexico = Lexico.lexico(arqFonte)
-        analisador_sintatico = sintatico(lexico)
-        print("Iniciando a análise sintática...")
-        analisador_sintatico.program()
-        print("\nO código é válido de acordo com a gramática.")
