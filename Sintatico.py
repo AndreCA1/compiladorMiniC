@@ -51,8 +51,16 @@ class Sintatico:
         self.consome(TOKEN.abreParenteses)
         argumentos = self.argList()
         self.consome(TOKEN.fechaParenteses)
+
+        #declara a função e entra no escopo dela
         self.semantico.declaraFuncao(nome_funcao, tipo, argumentos)
-        self.compoundStmt()
+
+        #corpo da função
+        self.consome(TOKEN.abreChaves)
+        self.stmtList()
+        self.consome(TOKEN.fechaChaves)
+        self.semantico.sai_escopo()
+
 
     def argList(self):
         # ArgList -> Arg RestoArgList | LAMBDA
@@ -121,9 +129,14 @@ class Sintatico:
 
     def compoundStmt(self):
         # CompoundStmt -> { StmtList }
+        # Blocos aninhados (dentro de if, while...)
+
+        #entra em um novo escopo aninhado
+        self.semantico.entra_escopo()
         self.consome(TOKEN.abreChaves)
         self.stmtList()
         self.consome(TOKEN.fechaChaves)
+        self.semantico.sai_escopo()
 
     def stmtList(self):
         # StmtList -> Stmt StmtList | LAMBDA
@@ -266,8 +279,8 @@ class Sintatico:
 
     def declaration(self):
         # Declaration -> Type IdentList ;
-        self.type()
-        self.identList()
+        tipo = self.type()
+        self.identList(tipo)
         self.consome(TOKEN.pontoVirgula)
 
     def type(self):
@@ -285,33 +298,37 @@ class Sintatico:
             return TOKEN.CHAR
         else:
             print(f'Erro em type: esperado int, float ou char, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
-
-    def identList(self):
+    def identList(self, tipo):
         # IdentList -> IdentDeclar RestoIdentList
-        self.identDeclar()
-        self.restoIdentList()
+        self.identDeclar(tipo)
+        self.restoIdentList(tipo)
 
-    def restoIdentList(self):
+    def restoIdentList(self, tipo):
         # RestoIdentList -> , IdentDeclar RestoIdentList | LAMBDA
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.virgula:
             self.consome(TOKEN.virgula)
-            self.identDeclar()
-            self.restoIdentList()
+            self.identDeclar(tipo)
+            self.restoIdentList(tipo)
         elif token == TOKEN.pontoVirgula:
             return
         else:
             print(f'Erro em restoIdentList: esperado vírgula ou pontoVirgula, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
-
-    def identDeclar(self):
+    def identDeclar(self, tipo):
         # IdentDeclar -> ident OpcIdentDeclar
+        nome_variavel = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
         self.opcIdentDeclar()
+        eh_vetor = self.opcIdentDeclar()
+        self.semantico.declaraVariavel(nome_variavel, tipo, eh_vetor)
 
+    # Retorna True se for um vetor, False caso contrário
     def opcIdentDeclar(self):
         # OpcIdentDeclar -> [ valorInt ] | LAMBDA
 
@@ -321,12 +338,13 @@ class Sintatico:
             self.consome(TOKEN.abreColchetes)
             self.consome(TOKEN.valorInt)
             self.consome(TOKEN.fechaColchetes)
+            return True
         elif token in {TOKEN.virgula, TOKEN.pontoVirgula}:
-            return
+            return False
         else:
             print(
                 f'Erro em opcIdentDeclar: esperado abreColchetes, vírgula ou pontoVirgula, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            return False
 
     def expr(self):
         # Expr -> Log RestoExpr
