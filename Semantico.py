@@ -5,7 +5,6 @@ class Semantico:
         self.escopos = [{}]
         self.alvo = open(nomeAlvo, "wt")
         self.tabelaOperacoes = TOKEN.tabelaOperacoes()
-        self.tabelaSimbolos = {}
 
     def finaliza(self):
         self.alvo.close()
@@ -17,21 +16,23 @@ class Semantico:
         self.escopos.pop()
 
     def declaraFuncao(self, nome, tipo, argumentos):
-        escopo_base = self.escopos[-1]
-        escopo_atual = self.tabelaSimbolos
+        escopo_global = self.escopos[-1]
 
-        if nome in escopo_base:
+        if nome in escopo_global:
             raise Exception(f"Identificador '{nome}' já declarado.")
 
-        escopo_atual[nome] = [(tipo, False)]
-
-        self.entra_escopo()
-
-        #Verifica se é uma tupla e adiciona a uma nova lsita argumentos_validos
+        funcao = [(tipo, False)]
+        # Verifica se é uma tupla e adiciona a uma nova lsita argumentos_validos
         argumentos_validos = [arg for arg in argumentos if isinstance(arg, tuple)]
 
         for tipo_arg, nome_arg, vet_arg in argumentos_validos:
-            escopo_atual[nome].append((tipo_arg, vet_arg))
+            funcao.append((tipo_arg, vet_arg))
+
+        escopo_global[nome] = (funcao)
+
+        self.entra_escopo()
+
+        for tipo_arg, nome_arg, vet_arg in argumentos_validos:
             self.declaraVariavel(nome_arg, tipo_arg, vet_arg)
 
     def declaraVariavel(self, nome, tipo, vet):
