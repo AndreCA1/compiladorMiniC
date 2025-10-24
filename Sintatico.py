@@ -348,25 +348,38 @@ class Sintatico:
 
     def expr(self):
         # Expr -> Log RestoExpr
-        self.log()
-        self.restoExpr()
+        tipo_log = self.log()
+        return self.restoExpr(tipo_log)
 
-    def restoExpr(self):
+    def restoExpr(self, tipo_esquerda):
         # RestoExpr -> = Expr RestoExpr | LAMBDA
 
-        primeiros_follow_expr = {  # Um subconjunto razoável de FOLLOW(Expr)
+        (token, lexema, linha, coluna) = self.lexico.tokenLido
+
+        primeiros_follow_expr = {
             TOKEN.pontoVirgula, TOKEN.fechaParenteses,
             TOKEN.virgula, TOKEN.fechaColchetes
         }
 
-        (token, lexema, linha, coluna) = self.lexico.tokenLido
-
         if token == TOKEN.atrib:
+            lvalue = tipo_esquerda[2]
+            if not lvalue:
+                raise Exception(
+                    f"Erro Semântico: Expressão à esquerda do '=' não é atribuível (não é um L-value). Linha: {linha}, Coluna: {coluna}")
+
             self.consome(TOKEN.atrib)
-            self.expr()
-            self.restoExpr()
+
+            tipo_direita = self.expr()
+
+            self.semantico.verifica_tipo(tipo_esquerda[0], tipo_direita[0])
+
+            tipo_resultado = (tipo_direita[0], tipo_esquerda[1], False)
+
+            return self.restoExpr(tipo_resultado)
+
         elif token in primeiros_follow_expr:
-            return
+            #LAMBDA
+            return tipo_esquerda
         else:
             print(
                 f'Erro em restoExpr: esperado igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
@@ -374,13 +387,13 @@ class Sintatico:
 
     def log(self):
         # Log -> Nao RestoLog
-        self.nao()
-        self.restoLog()
+        tipo_esquerda = self.nao()
+        return self.restoLog(tipo_esquerda)
 
-    def restoLog(self):
+    def restoLog(self, tipo_esquerda):
         # RestoLog -> AND Nao RestoLog | OR Nao RestoLog | LAMBDA
 
-        primeiros_follow_log = {  # Um subconjunto razoável de FOLLOW(Log)
+        primeiros_follow_log = {
             TOKEN.atrib, TOKEN.pontoVirgula, TOKEN.fechaParenteses,
             TOKEN.virgula, TOKEN.fechaColchetes
         }
@@ -389,14 +402,27 @@ class Sintatico:
 
         if token == TOKEN.AND:
             self.consome(TOKEN.AND)
-            self.nao()
-            self.restoLog()
+            tipo_direita = self.nao()
+
+            op = [tipo_esquerda, TOKEN.AND, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            return self.restoLog(tipo_para_proximo)
+
         elif token == TOKEN.OR:
             self.consome(TOKEN.OR)
-            self.nao()
-            self.restoLog()
+            tipo_direita = self.nao()
+
+            op = [tipo_esquerda, TOKEN.OR, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            return self.restoLog(tipo_para_proximo)
         elif token in primeiros_follow_log:
-            return
+            return tipo_esquerda
         else:
             print(
                 f'Erro em restoLog: esperado AND, OR, igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
@@ -408,16 +434,27 @@ class Sintatico:
 
         if token == TOKEN.NOT:
             self.consome(TOKEN.NOT)
-            self.nao()
+            tipo_filho = self.nao()
+
+            op = [TOKEN.NOT, tipo_filho[1]]
+
+            try:
+                tipo_resultado = self.semantico.verifica_operacao(op)
+            except Exception as e:
+                print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
+                raise Exception("Operação 'NOT' inválida.")
+
+            return tipo_resultado[0], tipo_resultado[1], False
+
         else:
-            self.rel()
+            return self.rel()
 
     def rel(self):
         # Rel -> Soma RestoRel
-        self.soma()
-        self.restoRel()
+        tipo_esquerda = self.soma()
+        return self.restoRel(tipo_esquerda)
 
-    def restoRel(self):
+    def restoRel(self, tipo_esquerda):
         # RestoRel -> opRel Soma | LAMBDA
 
         primeiros_follow_rel = {
@@ -430,88 +467,103 @@ class Sintatico:
 
         if token == TOKEN.opRel:
             self.consome(TOKEN.opRel)
-            self.soma()
+            tipo_direita = self.soma()
+
+            op = [tipo_esquerda, TOKEN.opRel, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
 
         elif token in primeiros_follow_rel:
             # LAMBDA
-            return
+            return tipo_esquerda
         else:
             print(f'Erro em restoRel: esperado operador relacional ({TOKEN.msg(TOKEN.opRel)}) ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
 
 
     def soma(self):
         # Soma -> Mult RestoSoma
-        self.mult()
-        self.restoSoma()
+        tipo_esquerda = self.mult()
+        return self.restoSoma(tipo_esquerda)
 
-    def restoSoma(self):
+    def restoSoma(self, tipo_esquerda):
         # RestoSoma -> + Mult RestoSoma | - Mult RestoSoma | LAMBDA
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.mais:
             self.consome(TOKEN.mais)
-            self.mult()
-            self.restoSoma()
+            tipo_direita = self.mult()  # (TIPO, VET, LVALUE)
+
+            # Passo 3: Validar Operação
+            op = [tipo_esquerda, TOKEN.mais, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)  # Retorna (TIPO, VET)
+
+            # Resultado de a+b não é L-value
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            return self.restoSoma(tipo_para_proximo)
 
         elif token == TOKEN.menos:
             self.consome(TOKEN.menos)
-            self.mult()
-            self.restoSoma()
+            tipo_direita = self.mult()
 
-        elif token in {
-            TOKEN.opRel,  # <--- ALTERAÇÃO: Checa o token único opRel
-            TOKEN.AND, TOKEN.OR, TOKEN.atrib,
-            TOKEN.pontoVirgula, TOKEN.fechaParenteses,
-            TOKEN.virgula, TOKEN.fechaColchetes
-        }:
-            return
+            op = [tipo_esquerda, TOKEN.menos, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            return self.restoSoma(tipo_para_proximo)
 
         else:
-            print(
-                f'Erro em restoSoma: esperado + , - , opRel ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            #LAMBDA
+            return tipo_esquerda
 
     def mult(self):
         # Mult -> Uno RestoMult
-        self.uno()
-        self.restoMult()
+        tipo_esquerda = self.uno()
+        return self.restoMult(tipo_esquerda)
 
-    def restoMult(self):
+    def restoMult(self, tipo_esquerda):
         # RestoMult -> * Uno RestoMult | / Uno RestoMult | % Uno RestoMult | LAMBDA
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.multiplicacao:
             self.consome(TOKEN.multiplicacao)
-            self.uno()
-            self.restoMult()
+            tipo_direita = self.uno()
+
+            op = [tipo_esquerda, TOKEN.multiplicacao, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            self.restoMult(tipo_para_proximo)
 
         elif token == TOKEN.divisao:
             self.consome(TOKEN.divisao)
-            self.uno()
-            self.restoMult()
+            tipo_direita = self.uno()
+
+            op = [tipo_esquerda, TOKEN.divisao, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            self.restoMult(tipo_para_proximo)
 
         elif token == TOKEN.porcentagem:
             self.consome(TOKEN.porcentagem)
-            self.uno()
-            self.restoMult()
+            tipo_direita = self.uno()
 
-        elif token in {
-            TOKEN.mais, TOKEN.menos,
-            TOKEN.opRel,  # <--- ALTERADO: Checa o token único opRel
-            TOKEN.AND, TOKEN.OR, TOKEN.atrib,
-            TOKEN.pontoVirgula, TOKEN.fechaParenteses,
-            TOKEN.virgula, TOKEN.fechaColchetes
-        }:
-            # LAMBDA: não faz nada
-            return
-        # --- FIM DA ALTERAÇÃO ---
+            op = [tipo_esquerda, TOKEN.porcentagem, tipo_direita]
+            tipo_result_op = self.semantico.verifica_operacao(op)
+
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            self.restoMult(tipo_para_proximo)
 
         else:
-            print(
-                f'Erro em restoMult: esperado *, /, %, operador aditivo, relacional ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            return tipo_esquerda
 
     def uno(self):
         # Uno -> + Uno | - Uno | Folha
@@ -519,31 +571,43 @@ class Sintatico:
 
         if token == TOKEN.mais:
             self.consome(TOKEN.mais)
-            self.uno()
+            tipo = self.uno()
+            # tipo_resultado = self.semantico.verifica_operacao([TOKEN.mais, tipo_filho])
+            tipo_resultado = (tipo[0], tipo[1])
+            return tipo_resultado[0], tipo_resultado[1], False
         elif token == TOKEN.menos:
             self.consome(TOKEN.menos)
-            self.uno()
+            tipo = self.uno()
+            # tipo_result = self.semantico.verifica_operacao([TOKEN.menos, tipo_filho])
+            tipo_result = (tipo[0], tipo[1])
+            return (tipo_result[0], tipo_result[1], False)
         else:
-            self.folha()
+            return self.folha()
 
+    #Retorna o tipo do identificador
     def folha(self):
         # Folha -> ( Expr ) | Identifier | valorInt | valorFloat | valorChar | valorString
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.abreParenteses:
             self.consome(TOKEN.abreParenteses)
-            self.expr()
+            tipo = self.expr()
             self.consome(TOKEN.fechaParenteses)
+            return tipo[0], tipo[1], False
         elif token == TOKEN.ident:
-            self.identifier()
+            return self.identifier()
         elif token == TOKEN.valorInt:
             self.consome(TOKEN.valorInt)
+            return TOKEN.valorInt, False, False
         elif token == TOKEN.valorFloat:
             self.consome(TOKEN.valorFloat)
+            return TOKEN.valorFloat, False, False
         elif token == TOKEN.valorChar:
             self.consome(TOKEN.valorChar)
+            return TOKEN.valorChar, False, False
         elif token == TOKEN.valorString:
             self.consome(TOKEN.valorString)
+            return TOKEN.valorString, False, False
         else:
             print(
                 f'Erro em folha: esperado (, ident, valorInt, valorFloat, valorChar, valorString, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
@@ -551,71 +615,119 @@ class Sintatico:
 
     def identifier(self):
         # Identifier -> ident OpcIdentifier
-        self.consome(TOKEN.ident)
-        self.opcIdentifier()
+        (token, lexema, linha, coluna) = self.lexico.tokenLido
 
-    def opcIdentifier(self):
+        # Descobre o tipo do identificador passando seu nome
+        tipo = self.semantico.verifica_declaracao(lexema)
+
+        self.consome(TOKEN.ident)
+
+        return self.opcIdentifier(tipo, lexema)
+
+    def opcIdentifier(self, tipo, nome):
         # OpcIdentifier -> [ Expr ] | ( Params ) | LAMBDA
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.abreColchetes:
+            # se não for tupla é uma função
+            if not isinstance(tipo, tuple):
+                raise Exception(
+                    f"Erro Semântico: '{nome}' é uma função e não pode ser acessado com []. Linha: {linha}, Coluna: {coluna}")
+
+            # verificar se é vetor a partir da tupla
+            if not tipo[1]:
+                raise Exception(f"Erro Semântico: '{nome}' não é um vetor e não pode ser acessado com []. Linha: {linha}, Coluna: {coluna}")
+
             self.consome(TOKEN.abreColchetes)
-            self.expr()
+            tipo_indice = self.expr()
+
+            # verifica se é inteiro, já que indices só podem ser inteiros
+            self.semantico.verifica_tipo(TOKEN.valorInt, tipo_indice[0])
+
             self.consome(TOKEN.fechaColchetes)
+
+            # Retorna o valor daquela posição do vetor, que não é um vetor
+            return tipo[0], False, True
+
         elif token == TOKEN.abreParenteses:
+            # Validação Semântica 1: Símbolo é uma função (list)?
+            if not isinstance(tipo, list):
+                raise Exception(f"Erro Semântico: '{nome}' não é uma função. Linha: {linha}, Coluna: {coluna}")
+
+            assinatura_func = tipo
+            tipo_retorno = assinatura_func[0]  # (TIPO_RETORNO, False)
+            params_esperados = assinatura_func[1:]  # [(TIPO_ARG1, VET_ARG1), ...]
+
             self.consome(TOKEN.abreParenteses)
-            self.params()
+
+            # Pega os tipos dos argumentos passados na chamada
+            tipos_passados = self.params
+
             self.consome(TOKEN.fechaParenteses)
-        elif token in {
-            TOKEN.multiplicacao, TOKEN.divisao, TOKEN.porcentagem,
-            TOKEN.mais, TOKEN.menos,
-            TOKEN.opRel,  # <--- ALTERADO: Checa o token único opRel
-            TOKEN.AND, TOKEN.OR, TOKEN.atrib,
-            TOKEN.pontoVirgula, TOKEN.fechaParenteses,
-            TOKEN.virgula, TOKEN.fechaColchetes
-        }:
-            return
-        # --- FIM DA ALTERAÇÃO ---
+
+            # Validação Semântica 2: Número de argumentos bate?
+            if len(params_esperados) != len(tipos_passados):
+                raise Exception(
+                    f"Erro Semântico: Função '{nome}' esperava {len(params_esperados)} argumentos, mas recebeu {len(tipos_passados)}. Linha: {linha}, Coluna: {coluna}")
+
+            # Validação Semântica 3: Tipos dos argumentos batem?
+            for i in range(len(params_esperados)):
+                tipo_esperado = params_esperados[i]  # (TIPO, VETOR)
+                tipo_passado = tipos_passados[i]  # (TIPO, VETOR)
+
+                # Compara o TIPO (ex: int, float)
+                self.semantico.verifica_tipo(tipo_esperado[0], tipo_passado[0])
+
+                # Compara se é VETOR (ex: int[] vs int)
+                if tipo_esperado[1] != tipo_passado[1]:
+                    raise Exception(
+                        f"Erro Semântico: Argumento {i + 1} de '{nome}': esperado {'vetor' if tipo_esperado[1] else 'não-vetor'}, mas recebeu {'vetor' if tipo_passado[1] else 'não-vetor'}. Linha: {linha}, Coluna: {coluna}")
+
+            # Resultado: O tipo de retorno da função
+            return tipo_retorno[0], tipo_retorno[1], False
         else:
-            print(
-                f'Erro em opcIdentifier: esperado [, (, ou token de operador/fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            # CASO: LAMBDA (uso de variável simples, 'a', ou passagem de vetor 'v')
 
+            # Validação Semântica: Não pode ser uma função (função *precisa* ser chamada)
+            if isinstance(tipo, list):
+                raise Exception(
+                    f"Erro Semântico: '{nome}' é uma função e deve ser chamada com (). Linha: {linha}, Coluna: {coluna}")
 
+            # Resultado: O tipo da própria variável (seja int ou int[])
+            return tipo[0], tipo[1], True
     def params(self):
         # Params -> Expr RestoParams | LAMBDA
+        # Retorna uma lista de tuplas de tipo: [(TIPO, VET), (TIPO, VET), ...]
 
+        (token, lexema, linha, coluna) = self.lexico.tokenLido
+
+        # Conjunto FIRST(Expr)
         primeiros_expr = {
             TOKEN.ident, TOKEN.abreParenteses,
             TOKEN.valorInt, TOKEN.valorFloat, TOKEN.valorChar, TOKEN.valorString,
             TOKEN.mais, TOKEN.menos, TOKEN.NOT
         }
 
-        (token, lexema, linha, coluna) = self.lexico.tokenLido
+        lista_tipos = []
 
         if token in primeiros_expr:
-            self.expr()
-            self.restoParams()
-        elif token == TOKEN.fechaParenteses:
-            # LAMBDA
-            return
-        else:
-            print(
-                f'Erro em params: esperado início de expressão ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            tipo_expr = self.expr()
+            lista_tipos.append(tipo_expr)
+            self.restoParams(lista_tipos)
 
+        # Caso LAMBDA (função sem argumentos, ex: func())
+        return lista_tipos
 
-    def restoParams(self):
+    def restoParams(self, lista_tipos):
         # RestoParams -> , Expr RestoParams | LAMBDA
-
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.virgula:
             self.consome(TOKEN.virgula)
-            self.expr()
-            self.restoParams()
-        elif token == TOKEN.fechaParenteses:
-            # LAMBDA
-            return
-        else:
-            print(f'Erro em restoParams: esperado vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            tipo_expr = self.expr()
+            lista_tipos.append(tipo_expr)
+            self.restoParams(lista_tipos)
 
+        # Caso LAMBDA (fim da lista de argumentos)
+        return

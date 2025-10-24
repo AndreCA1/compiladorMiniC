@@ -41,6 +41,7 @@ class Semantico:
             raise Exception(f"Identificador '{nome}' já declarado neste escopo")
         escopo_atual[nome] = tipo, vet
 
+    #retorna uma tupla com o tipo do identificador Ex: (TOKEN.valorInt, False)
     def verifica_declaracao(self, nome):
         for escopo in reversed(self.escopos):
             if nome in escopo:
