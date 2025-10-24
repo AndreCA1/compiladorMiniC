@@ -68,8 +68,12 @@ class Semantico:
             exit(1)
 
     def verifica_operacao(self, operacao: list):
-        #operacao vem com o LVALUE, portanto é preciso criar a op com apenas o tipo e se é vetor
-        op = ((operacao[0][0], operacao[0][1]), operacao[1], (operacao[2][0], operacao[2][1]))
+        #verifica se é uma operação unitaria como a = -1
+        if len(operacao) == 2:
+            op = (operacao[0], (operacao[1][0], operacao[1][1]))
+        else:
+            # operacao vem com o LVALUE, portanto é preciso criar a op com apenas o tipo e se é vetor
+            op = ((operacao[0][0], operacao[0][1]), operacao[1], (operacao[2][0], operacao[2][1]))
         entrada = frozenset(op)
         if entrada in self.tabelaOperacoes:
             teste = self.tabelaOperacoes[entrada]
