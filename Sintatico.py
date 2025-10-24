@@ -289,13 +289,13 @@ class Sintatico:
 
         if token == TOKEN.INT:
             self.consome(TOKEN.INT)
-            return TOKEN.INT
+            return TOKEN.valorInt
         elif token == TOKEN.FLOAT:
             self.consome(TOKEN.FLOAT)
-            return TOKEN.FLOAT
+            return TOKEN.valorFloat
         elif token == TOKEN.CHAR:
             self.consome(TOKEN.CHAR)
-            return TOKEN.CHAR
+            return TOKEN.valorChar
         else:
             print(f'Erro em type: esperado int, float ou char, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
             exit(1)
@@ -324,7 +324,6 @@ class Sintatico:
         # IdentDeclar -> ident OpcIdentDeclar
         nome_variavel = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
-        self.opcIdentDeclar()
         eh_vetor = self.opcIdentDeclar()
         self.semantico.declaraVariavel(nome_variavel, tipo, eh_vetor)
 
@@ -421,6 +420,7 @@ class Sintatico:
             tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
 
             return self.restoLog(tipo_para_proximo)
+
         elif token in primeiros_follow_log:
             return tipo_esquerda
         else:
@@ -434,17 +434,18 @@ class Sintatico:
 
         if token == TOKEN.NOT:
             self.consome(TOKEN.NOT)
+
             tipo_filho = self.nao()
 
-            op = [TOKEN.NOT, tipo_filho[1]]
+            op = [TOKEN.NOT, tipo_filho]
 
             try:
-                tipo_resultado = self.semantico.verifica_operacao(op)
+                tipo_resultante_op = self.semantico.verifica_operacao(op)
             except Exception as e:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
                 raise Exception("Operação 'NOT' inválida.")
 
-            return tipo_resultado[0], tipo_resultado[1], False
+            return tipo_resultante_op[0], tipo_resultante_op[1], False
 
         else:
             return self.rel()
@@ -473,6 +474,8 @@ class Sintatico:
             tipo_result_op = self.semantico.verifica_operacao(op)
 
             tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+
+            return  tipo_para_proximo
 
         elif token in primeiros_follow_rel:
             # LAMBDA
@@ -538,7 +541,7 @@ class Sintatico:
 
             tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
 
-            self.restoMult(tipo_para_proximo)
+            return self.restoMult(tipo_para_proximo)
 
         elif token == TOKEN.divisao:
             self.consome(TOKEN.divisao)
@@ -549,7 +552,7 @@ class Sintatico:
 
             tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
 
-            self.restoMult(tipo_para_proximo)
+            return self.restoMult(tipo_para_proximo)
 
         elif token == TOKEN.porcentagem:
             self.consome(TOKEN.porcentagem)
@@ -560,7 +563,7 @@ class Sintatico:
 
             tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
 
-            self.restoMult(tipo_para_proximo)
+            return self.restoMult(tipo_para_proximo)
 
         else:
             return tipo_esquerda
@@ -571,16 +574,34 @@ class Sintatico:
 
         if token == TOKEN.mais:
             self.consome(TOKEN.mais)
-            tipo = self.uno()
-            # tipo_resultado = self.semantico.verifica_operacao([TOKEN.mais, tipo_filho])
-            tipo_resultado = (tipo[0], tipo[1])
-            return tipo_resultado[0], tipo_resultado[1], False
+
+            tipo_filho = self.uno()
+
+            op = [TOKEN.mais, tipo_filho]
+
+            try:
+                tipo_resultante_op = self.semantico.verifica_operacao(op)
+            except Exception as e:
+                print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
+                raise Exception("Operação unária '+' inválida.")
+
+            return tipo_resultante_op[0], tipo_resultante_op[1], False
+
         elif token == TOKEN.menos:
             self.consome(TOKEN.menos)
-            tipo = self.uno()
-            # tipo_result = self.semantico.verifica_operacao([TOKEN.menos, tipo_filho])
-            tipo_result = (tipo[0], tipo[1])
-            return (tipo_result[0], tipo_result[1], False)
+
+            tipo_filho = self.uno()
+
+            op = [TOKEN.menos, tipo_filho]
+
+            try:
+                tipo_resultante_op = self.semantico.verifica_operacao(op)
+            except Exception as e:
+                print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
+                raise Exception("Operação unária '-' inválida.")
+
+            return tipo_resultante_op[0], tipo_resultante_op[1], False
+
         else:
             return self.folha()
 
@@ -594,20 +615,26 @@ class Sintatico:
             tipo = self.expr()
             self.consome(TOKEN.fechaParenteses)
             return tipo[0], tipo[1], False
+
         elif token == TOKEN.ident:
             return self.identifier()
+
         elif token == TOKEN.valorInt:
             self.consome(TOKEN.valorInt)
             return TOKEN.valorInt, False, False
+
         elif token == TOKEN.valorFloat:
             self.consome(TOKEN.valorFloat)
             return TOKEN.valorFloat, False, False
+
         elif token == TOKEN.valorChar:
             self.consome(TOKEN.valorChar)
             return TOKEN.valorChar, False, False
+
         elif token == TOKEN.valorString:
             self.consome(TOKEN.valorString)
             return TOKEN.valorString, False, False
+
         else:
             print(
                 f'Erro em folha: esperado (, ident, valorInt, valorFloat, valorChar, valorString, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
@@ -662,7 +689,7 @@ class Sintatico:
             self.consome(TOKEN.abreParenteses)
 
             # Pega os tipos dos argumentos passados na chamada
-            tipos_passados = self.params
+            tipos_passados = self.params()
 
             self.consome(TOKEN.fechaParenteses)
 
@@ -731,3 +758,6 @@ class Sintatico:
 
         # Caso LAMBDA (fim da lista de argumentos)
         return
+
+
+#todo: Passo 4: Validar atribuições (tipo, leftValue)

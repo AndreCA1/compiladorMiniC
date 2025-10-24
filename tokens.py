@@ -120,6 +120,7 @@ class TOKEN(IntEnum):
             frozenset({(TOKEN.valorInt, False), TOKEN.mais, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
             frozenset({(TOKEN.valorInt, False), TOKEN.menos, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
             frozenset({(TOKEN.valorInt, False), TOKEN.multiplicacao, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
+            # Nota: Em Mini-C (como em C), int / int -> int (divisão truncada)
             frozenset({(TOKEN.valorInt, False), TOKEN.divisao, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
             frozenset({(TOKEN.valorInt, False), TOKEN.porcentagem, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
 

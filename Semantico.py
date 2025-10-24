@@ -68,7 +68,9 @@ class Semantico:
             exit(1)
 
     def verifica_operacao(self, operacao: list):
-        entrada = frozenset(operacao)
+        #operacao vem com o LVALUE, portanto é preciso criar a op com apenas o tipo e se é vetor
+        op = ((operacao[0][0], operacao[0][1]), operacao[1], (operacao[2][0], operacao[2][1]))
+        entrada = frozenset(op)
         if entrada in self.tabelaOperacoes:
             teste = self.tabelaOperacoes[entrada]
             return teste
