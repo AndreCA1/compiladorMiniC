@@ -253,7 +253,7 @@ class Lexico:
 if __name__ == '__main__':
     init()
     with open("exampleWrite.c", "r", encoding="utf-8") as arqFonte:
-        lexico = lexico(arqFonte)
+        lexico = Lexico(arqFonte)
         token = lexico.getToken()
         while token[0] != TOKEN.fimarquivo:
             lexico.imprimirToken(token)

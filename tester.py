@@ -3,7 +3,7 @@ from Sintatico import Sintatico
 
 class Tradutor:
     def __init__(self):
-        self.nomeArq = "exampleWrite.c"
+        self.nomeArq = "exampleWrong.c"
 
     def inicializa(self):
         self.arq = open(self.nomeArq, "r")

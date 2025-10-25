@@ -13,8 +13,7 @@ class Sintatico:
         if token == TOKEN.erro:
             print(f"\nErro Léxico na linha {linha}, coluna {coluna}: {lexema}")
             exit(1)
-
-        if tokenAtual == token:
+        elif tokenAtual == token:
             self.lexico.tokenLido = self.lexico.getToken()
         else:
             msgTokenLido = TOKEN.msg(token)
@@ -25,6 +24,7 @@ class Sintatico:
                 msg = msgTokenLido
 
             print(f'Era esperado {msgTokenAtual} mas veio {msg} Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def program(self):
         # Program -> Function Program | LAMBDA
@@ -82,6 +82,7 @@ class Sintatico:
             return args
         else:
             print(f'Erro em argList: esperado tipo (int, float, char) ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def restoArgList(self, args):
         # RestoArgList -> , Arg RestoArgList | LAMBDA
@@ -96,6 +97,7 @@ class Sintatico:
             return args
         else:
             print(f'Erro em restoArgList: esperado vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     # Retorna uma tripla (TOKEN.TIPO, nome_arg, True or False)
     def arg(self):
@@ -126,6 +128,7 @@ class Sintatico:
             return False
         else:
             print(f'Erro em opcIdentArg: esperado abreColchete, vírgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def compoundStmt(self):
         # CompoundStmt -> { StmtList }
@@ -159,9 +162,8 @@ class Sintatico:
         elif token == TOKEN.fechaChaves:
             return
         else:
-            print(
-                f'Erro em stmtList: esperado token inicial de um comando ou fechaChaves, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em stmtList: esperado token inicial de um comando ou fechaChaves, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def stmt(self):
         # Stmt -> ForStmt | WhileStmt | IfStmt | CompoundStmt | break ; | continue ; | return Expr ; | Expr ; | Declaration | ;
@@ -200,7 +202,7 @@ class Sintatico:
             self.consome(TOKEN.pontoVirgula)
         else:
             print(f'Erro em stmt: comando inesperado: {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            exit(1)
 
     def forStmt(self):
         # ForStmt -> for ( Expr ; OptExpr ; OptExpr ) Stmt
@@ -231,9 +233,8 @@ class Sintatico:
             # LAMBDA
             return
         else:
-            print(
-                f'Erro em optExpr: esperado início de expressão, pontoVirgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em optExpr: esperado início de expressão, pontoVirgula ou fechaParenteses, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def whileStmt(self):
         # WhileStmt -> while ( Expr ) Stmt
@@ -273,9 +274,8 @@ class Sintatico:
         elif token in primeiros_follow_stmt:
             return
         else:
-            print(
-                f'Erro em elsePart: esperado else ou token inicial de um novo comando, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em elsePart: esperado else ou token inicial de um novo comando, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def declaration(self):
         # Declaration -> Type IdentList ;
@@ -341,9 +341,8 @@ class Sintatico:
         elif token in {TOKEN.virgula, TOKEN.pontoVirgula}:
             return False
         else:
-            print(
-                f'Erro em opcIdentDeclar: esperado abreColchetes, vírgula ou pontoVirgula, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-            return False
+            print(f'Erro em opcIdentDeclar: esperado abreColchetes, vírgula ou pontoVirgula, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def expr(self):
         # Expr -> Log RestoExpr
@@ -366,11 +365,18 @@ class Sintatico:
                 raise Exception(
                     f"Erro Semântico: Expressão à esquerda do '=' não é atribuível (não é um L-value). Linha: {linha}, Coluna: {coluna}")
 
+            if not tipo_esquerda[2]:
+                raise Exception(
+                    f"Erro Semântico na Linha {linha}, Coluna {coluna}: Expressão à esquerda do '=' não é atribuível (não é um L-value).")
+
             self.consome(TOKEN.atrib)
 
             tipo_direita = self.expr()
 
-            self.semantico.verifica_tipo(tipo_esquerda[0], tipo_direita[0])
+            try:
+                self.semantico.verifica_tipo(tipo_esquerda[0], tipo_direita[0])
+            except Exception as e:
+                raise Exception(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
 
             tipo_resultado = (tipo_direita[0], tipo_esquerda[1], False)
 
@@ -380,9 +386,8 @@ class Sintatico:
             #LAMBDA
             return tipo_esquerda
         else:
-            print(
-                f'Erro em restoExpr: esperado igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em restoExpr: esperado igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def log(self):
         # Log -> Nao RestoLog
@@ -424,9 +429,8 @@ class Sintatico:
         elif token in primeiros_follow_log:
             return tipo_esquerda
         else:
-            print(
-                f'Erro em restoLog: esperado AND, OR, igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em restoLog: esperado AND, OR, igual ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def nao(self):
         # Nao -> NOT Nao | Rel
@@ -443,7 +447,7 @@ class Sintatico:
                 tipo_resultante_op = self.semantico.verifica_operacao(op)
             except Exception as e:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
-                raise Exception("Operação 'NOT' inválida.")
+                exit(1)
 
             return tipo_resultante_op[0], tipo_resultante_op[1], False
 
@@ -482,7 +486,7 @@ class Sintatico:
             return tipo_esquerda
         else:
             print(f'Erro em restoRel: esperado operador relacional ({TOKEN.msg(TOKEN.opRel)}) ou token de fim de expressão, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            exit(1)
 
     def soma(self):
         # Soma -> Mult RestoSoma
@@ -583,7 +587,7 @@ class Sintatico:
                 tipo_resultante_op = self.semantico.verifica_operacao(op)
             except Exception as e:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
-                raise Exception("Operação unária '+' inválida.")
+                exit(1)
 
             return tipo_resultante_op[0], tipo_resultante_op[1], False
 
@@ -598,7 +602,7 @@ class Sintatico:
                 tipo_resultante_op = self.semantico.verifica_operacao(op)
             except Exception as e:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
-                raise Exception("Operação unária '-' inválida.")
+                exit(1)
 
             return tipo_resultante_op[0], tipo_resultante_op[1], False
 
@@ -636,9 +640,8 @@ class Sintatico:
             return TOKEN.valorString, False, False
 
         else:
-            print(
-                f'Erro em folha: esperado (, ident, valorInt, valorFloat, valorChar, valorString, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
-
+            print(f'Erro em folha: esperado (, ident, valorInt, valorFloat, valorChar, valorString, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
+            exit(1)
 
     def identifier(self):
         # Identifier -> ident OpcIdentifier

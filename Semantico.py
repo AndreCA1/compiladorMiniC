@@ -55,7 +55,9 @@ class Semantico:
         if tipo_esperado == TOKEN.valorInt and tipo_real == TOKEN.valorChar:
             return
         if tipo_esperado != tipo_real:
-            raise Exception(f'Erro semântico: Tipo incompatível. Esperado {tipo_esperado}, mas recebido {tipo_real}.')
+            msg_esperado = TOKEN.msg(tipo_esperado)
+            msg_real = TOKEN.msg(tipo_real)
+            raise Exception(f'Tipo incompatível. Esperado {msg_esperado}, mas recebido {msg_real}.')
 
     def obter_tipo_token(self, ident, linha, coluna):
         try:
