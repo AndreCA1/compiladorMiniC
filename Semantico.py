@@ -2,7 +2,7 @@ from tokens import TOKEN
 
 class Semantico:
     def __init__(self, nomeAlvo):
-        self.indent = 0
+        self.ident = 0
         self.escopos = [{}]
         self.alvo = open(nomeAlvo, "wt")
         self.tabelaOperacoes = TOKEN.tabelaOperacoes()
@@ -18,11 +18,11 @@ class Semantico:
     def finaliza(self):
         self.alvo.close()
 
-    def mais_indent(self):
-        self.indent += 1
+    def mais_ident(self):
+        self.ident += 1
 
-    def menos_indent(self):
-        self.indent -= 1
+    def menos_ident(self):
+        self.ident -= 1
 
     def entra_escopo(self):
         self.escopos.append({})
@@ -110,10 +110,9 @@ class Semantico:
         print(f'{msg}')
         raise Exception
 
-    def gera(self, nivel, codigo):
-        identacao = ' ' * 4 * nivel
-        linha = identacao + codigo
-        self.alvo.write(linha)
+    def gera(self, codigo):
+        identacao = ' ' * 4 * self.ident
+        self.alvo.write(identacao + codigo)
 
     def gera_chamada_builtin(self, nome, args):
         if nome == "putstr":

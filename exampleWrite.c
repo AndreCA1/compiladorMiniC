@@ -1,56 +1,8 @@
-//-----------------------------
-//  arquivo de teste: mini-C
-//-----------------------------
-
-int ordena(int vetor[], int tam)
-{
-   int topo, bolha;
-   for (topo = tam-1; topo > 1; topo = topo - 1) {
-      for (bolha = 0; bolha < topo; bolha = bolha + 1) {
-          if (vetor[bolha] > vetor[bolha+1]) {
-             int aux;
-             aux = vetor[bolha+1];
-             vetor[bolha+1] = vetor[bolha];
-             vetor[bolha] = aux;
-          }
-      }
-   }
-}
-
-int prompt(int i)
-{
-   putstr("Digite o ");
-   putint(i);
-   putstr("o inteiro: ");
-}
-
-
 int main()
 {
-   int buffer[15];
-   int i;
-
-   // entrada
-   putstr("ENTRADA \n");
-   for(i = 0; i < 15; i = i + 1)
-   {
-      prompt(i+1);
-      buffer[i] = getint();
-   }
-
-   ordena(buffer, 15);
-
-   // saida
-   putstr("SAIDA \n");
-   for(i = 0; i < 15; i = i + 1)
-   {
-      putint(buffer[i]);
-      putchar('\n');
-   }
-
-   // asd
-   int z;
-   z = 'c';
-   int x;
-   x = 3.1;
+   for (i = 0; i < 3; i = i + 1) {
+        int i;          //  sombra do i do laço
+        i = 100;
+        putint(i);      //  sempre 100
+    }
 }

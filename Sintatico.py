@@ -28,22 +28,26 @@ class Sintatico:
 
     def prog(self):
         # abre classe
-        self.semantico.gera(0, "class Programa:\n")
+        self.semantico.gera("class Programa:\n")
 
         # __init__
-        self.semantico.gera(1, "def __init__(self):\n")
-        self.semantico.gera(2, "pass\n\n")
+        self.semantico.mais_ident()
 
-        self.semantico.mais_indent()
+        self.semantico.gera("def __init__(self):\n")
+
+        self.semantico.mais_ident()
+        self.semantico.gera("pass\n\n")
+
+        self.semantico.menos_ident()
 
         self.program()
 
-        self.semantico.menos_indent()
+        self.semantico.menos_ident()
 
         # fim do arquivo
-        self.semantico.gera(0, "\nif __name__ == '__main__':\n")
-        self.semantico.gera(1, "p = Programa()\n")
-        self.semantico.gera(1, "p.main()\n")
+        self.semantico.gera("\nif __name__ == '__main__':\n")
+        self.semantico.gera("p = Programa()\n")
+        self.semantico.gera("p.main()\n")
 
     def program(self):
         # Program -> Function Program | LAMBDA
@@ -77,10 +81,10 @@ class Sintatico:
 
         # Gera assinatura completa em UMA linha
         lista_args = ", ".join([nome for (_, nome, _) in args[1:]])
-        self.semantico.gera(1, f"def {nome_funcao}(self{', ' + lista_args if lista_args else ''}):\n")
+        self.semantico.gera(f"def {nome_funcao}(self{', ' + lista_args if lista_args else ''}):\n")
 
         # Agora sim entra no corpo
-        self.semantico.mais_indent()
+        self.semantico.mais_ident()
 
         # Registra função no semântico
         self.semantico.declaraFuncao(nome_funcao, tipo, args)
@@ -90,7 +94,7 @@ class Sintatico:
         self.stmtList()
         self.consome(TOKEN.fechaChaves)
 
-        self.semantico.menos_indent()
+        self.semantico.menos_ident()
         self.semantico.sai_escopo()
 
     def argList(self):
@@ -168,9 +172,7 @@ class Sintatico:
         #entra em um novo escopo aninhado
         self.semantico.entra_escopo()
         self.consome(TOKEN.abreChaves)
-        self.semantico.mais_indent()
         self.stmtList()
-        self.semantico.menos_indent()
         self.consome(TOKEN.fechaChaves)
         self.semantico.sai_escopo()
 
@@ -241,37 +243,41 @@ class Sintatico:
         self.consome(TOKEN.FOR)
         self.consome(TOKEN.abreParenteses)
 
-        # init
+        # --- init ---
+        init_code = ""
         if self.lexico.tokenLido[0] != TOKEN.pontoVirgula:
             init = self.expr()
-            self.semantico.gera(self.semantico.indent, init[3] + "\n")
+            init_code = init[3]
         self.consome(TOKEN.pontoVirgula)
 
-        # cond
+        # --- cond ---
         if self.lexico.tokenLido[0] != TOKEN.pontoVirgula:
-            cond = self.expr()
+            cond = self.expr()[3]
         else:
-            cond = (TOKEN.valorInt, False, False, "True")
+            cond = "True"
         self.consome(TOKEN.pontoVirgula)
 
-        # inc
-        increment = None
+        # --- increment ---
+        increment_code = ""
         if self.lexico.tokenLido[0] != TOKEN.fechaParenteses:
-            increment = self.expr()
-
+            increment_code = self.expr()[3]
         self.consome(TOKEN.fechaParenteses)
 
-        # gera while
-        self.semantico.gera(self.semantico.indent, f"while {cond[3]}:\n")
-        self.semantico.mais_indent()
+        # --- gera init ---
+        if init_code:
+            self.semantico.gera(init_code + "\n")
 
-        self.stmt()  # corpo do for
+        self.semantico.gera(f"while {cond}:\n")
+        self.semantico.mais_ident()
 
-        # incremento após o corpo
-        if increment:
-            self.semantico.gera(self.semantico.indent, increment[3] + "\n")
+        # corpo
+        self.stmt()
 
-        self.semantico.menos_indent()
+        # incremento ao final do corpo
+        if increment_code:
+            self.semantico.gera(increment_code + "\n")
+
+        self.semantico.menos_ident()
 
     def optExpr(self):
         # OptExpr -> Expr | LAMBDA
@@ -301,11 +307,11 @@ class Sintatico:
         self.consome(TOKEN.fechaParenteses)
 
         #Gera código:
-        self.semantico.gera(self.semantico.indent, f"while {cond[3]}:\n")
-        self.semantico.mais_indent()
+        self.semantico.gera(f"while {cond[3]}:\n")
+        self.semantico.mais_ident()
 
         self.stmt()
-        self.semantico.menos_indent()
+        self.semantico.menos_ident()
 
     def ifStmt(self):
         # IfStmt -> if ( Expr ) Stmt ElsePart
@@ -316,11 +322,11 @@ class Sintatico:
         self.consome(TOKEN.fechaParenteses)
 
         #Gera código:
-        self.semantico.gera(self.semantico.indent, f"if {cond[3]}:\n")
-        self.semantico.mais_indent()
+        self.semantico.gera(f"if {cond[3]}:\n")
+        self.semantico.mais_ident()
 
         self.stmt()
-        self.semantico.menos_indent()
+        self.semantico.menos_ident()
         self.elsePart()
 
     def elsePart(self):
@@ -342,11 +348,11 @@ class Sintatico:
             self.consome(TOKEN.ELSE)
 
             #Gera código:
-            self.semantico.gera(self.semantico.indent, "else:\n")
-            self.semantico.mais_indent()
+            self.semantico.gera("else:\n")
+            self.semantico.mais_ident()
 
             self.stmt()
-            self.semantico.menos_indent()
+            self.semantico.menos_ident()
 
         elif token in primeiros_follow_stmt:
             return
@@ -474,11 +480,11 @@ class Sintatico:
             if tipo_dest == TOKEN.valorInt and tipo_src == TOKEN.valorFloat:
                 codigo_dir = f"int({codigo_dir})"
 
-            # gera codigo da atribuição
-            self.semantico.gera(self.semantico.indent, f"{codigo_esq} = {codigo_dir}\n")
+            # monta a STRING da atribuição — mas NÃO gera agora
+            codigo = f"{codigo_esq} = {codigo_dir}"
 
-            # resultado da atribuição é o valor atribuído (mas não lvalue)
-            tipo_resultado = (tipo_esquerda[0], tipo_esquerda[1], False, codigo_esq)
+            # valor da expressão é a variável da esquerda
+            tipo_resultado = (tipo_esquerda[0], tipo_esquerda[1], False, codigo)
 
             return self.restoExpr(tipo_resultado)
 

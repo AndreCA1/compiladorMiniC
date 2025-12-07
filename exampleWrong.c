@@ -28,11 +28,11 @@ float mistura_tipos(int x, float y) {
     z = x;              //  ok: int -> float 
 
     {
-        int x;          //  ok: sombra do parâmetro x 
-        float y;        //  ok: sombra do parâmetro y 
+        int x;          //  ok: sombra do parâmetro x
+        float y;        //  ok: sombra do parâmetro y
 
-        x = 10;         //  usa variáveis internas 
-        y = 2.5;        //  usa variáveis internas 
+        x = 10;         //  usa variáveis internas
+        y = 2.5;        //  usa variáveis internas
     }
 
     x = k;              //  ok: ainda estamos no escopo da função 
