@@ -11,7 +11,7 @@ class Tradutor:
         self.sintatico = Sintatico(self.lexico, "./saida.py")
 
     def traduz(self):
-        self.sintatico.program()
+        self.sintatico.prog()
 
     def finaliza(self):
         self.arq.close()

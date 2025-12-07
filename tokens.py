@@ -141,6 +141,23 @@ class TOKEN(IntEnum):
             frozenset({(TOKEN.valorInt, False), TOKEN.multiplicacao, (TOKEN.valorFloat, False)}): (TOKEN.valorFloat, False),
             frozenset({(TOKEN.valorInt, False), TOKEN.divisao, (TOKEN.valorFloat, False)}): (TOKEN.valorFloat, False),
 
+            # ENTRE INT e CHAR
+            frozenset({(TOKEN.valorChar, False), TOKEN.mais, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.menos, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.multiplicacao, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.divisao, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
+
+            frozenset({(TOKEN.valorInt, False), TOKEN.mais, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorInt, False), TOKEN.menos, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorInt, False), TOKEN.multiplicacao, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorInt, False), TOKEN.divisao, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+
+            # ENTRE CHAR e CHAR
+            frozenset({(TOKEN.valorChar, False), TOKEN.mais, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.menos, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.multiplicacao, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+            frozenset({(TOKEN.valorChar, False), TOKEN.divisao, (TOKEN.valorChar, False)}): (TOKEN.valorInt, False),
+
             # OPERAÇÕES RELACIONAIS (retornam int)
             frozenset({(TOKEN.valorInt, False), TOKEN.opRel, (TOKEN.valorInt, False)}): (TOKEN.valorInt, False),
             frozenset({(TOKEN.valorFloat, False), TOKEN.opRel, (TOKEN.valorFloat, False)}): (TOKEN.valorInt, False),

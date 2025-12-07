@@ -2,12 +2,27 @@ from tokens import TOKEN
 
 class Semantico:
     def __init__(self, nomeAlvo):
+        self.indent = 0
         self.escopos = [{}]
         self.alvo = open(nomeAlvo, "wt")
         self.tabelaOperacoes = TOKEN.tabelaOperacoes()
 
+        self.declaraFuncao("putchar", TOKEN.valorChar,[{}, (TOKEN.valorChar, "c", False)])
+        self.declaraFuncao("putstr", TOKEN.valorString,[{}, (TOKEN.valorString, "s", False)])
+        self.declaraFuncao("putint", TOKEN.valorInt,[{}, (TOKEN.valorInt, "i", False)])
+        self.declaraFuncao("putfloat", TOKEN.valorFloat,[{}, (TOKEN.valorFloat, "f", False)])
+        self.declaraFuncao("getchar", TOKEN.valorChar, [{}])
+        self.declaraFuncao("getint", TOKEN.valorInt, [{}])
+        self.declaraFuncao("getfloat", TOKEN.valorFloat, [{}])
+
     def finaliza(self):
         self.alvo.close()
+
+    def mais_indent(self):
+        self.indent += 1
+
+    def menos_indent(self):
+        self.indent -= 1
 
     def entra_escopo(self):
         self.escopos.append({})
@@ -52,7 +67,11 @@ class Semantico:
     def verifica_tipo(self, tipo_esperado, tipo_real):
         if tipo_esperado == TOKEN.valorFloat and tipo_real == TOKEN.valorInt:
             return
+        if tipo_esperado == TOKEN.valorInt and tipo_real == TOKEN.valorFloat:
+            return
         if tipo_esperado == TOKEN.valorInt and tipo_real == TOKEN.valorChar:
+            return
+        if tipo_esperado == TOKEN.valorChar and tipo_real == TOKEN.valorInt:
             return
         if tipo_esperado != tipo_real:
             msg_esperado = TOKEN.msg(tipo_esperado)
@@ -95,3 +114,13 @@ class Semantico:
         identacao = ' ' * 4 * nivel
         linha = identacao + codigo
         self.alvo.write(linha)
+
+    def gera_chamada_builtin(self, nome, args):
+        if nome == "putstr":
+            return f"print({args}, end='')"
+        if nome == "putint":
+            return f"print({args}, end='')"
+        if nome == "putchar":
+            return f"print(chr({args}), end='')"
+        if nome == "getint":
+            return "int(input())"

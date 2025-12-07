@@ -26,6 +26,25 @@ class Sintatico:
             print(f'Era esperado {msgTokenAtual} mas veio {msg} Linha: {linha} Coluna: {coluna}')
             exit(1)
 
+    def prog(self):
+        # abre classe
+        self.semantico.gera(0, "class Programa:\n")
+
+        # __init__
+        self.semantico.gera(1, "def __init__(self):\n")
+        self.semantico.gera(2, "pass\n\n")
+
+        self.semantico.mais_indent()
+
+        self.program()
+
+        self.semantico.menos_indent()
+
+        # fim do arquivo
+        self.semantico.gera(0, "\nif __name__ == '__main__':\n")
+        self.semantico.gera(1, "p = Programa()\n")
+        self.semantico.gera(1, "p.main()\n")
+
     def program(self):
         # Program -> Function Program | LAMBDA
         (token, lexema, linha, coluna) = self.lexico.tokenLido
@@ -44,23 +63,35 @@ class Sintatico:
             return
 
     def function(self):
-        # Function -> Type ident ( ArgList ) CompoundStmt
         tipo = self.type()
         nome_funcao = self.lexico.tokenLido[1]
+
+        # Nome da função
+        nome_funcao = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
+
+        # Abre "("
         self.consome(TOKEN.abreParenteses)
-        argumentos = self.argList()
+        args = self.argList()
         self.consome(TOKEN.fechaParenteses)
 
-        #declara a função e entra no escopo dela
-        self.semantico.declaraFuncao(nome_funcao, tipo, argumentos)
+        # Gera assinatura completa em UMA linha
+        lista_args = ", ".join([nome for (_, nome, _) in args[1:]])
+        self.semantico.gera(1, f"def {nome_funcao}(self{', ' + lista_args if lista_args else ''}):\n")
 
-        #corpo da função
+        # Agora sim entra no corpo
+        self.semantico.mais_indent()
+
+        # Registra função no semântico
+        self.semantico.declaraFuncao(nome_funcao, tipo, args)
+
+        # Corpo
         self.consome(TOKEN.abreChaves)
         self.stmtList()
         self.consome(TOKEN.fechaChaves)
-        self.semantico.sai_escopo()
 
+        self.semantico.menos_indent()
+        self.semantico.sai_escopo()
 
     def argList(self):
         # ArgList -> Arg RestoArgList | LAMBDA
@@ -137,7 +168,9 @@ class Sintatico:
         #entra em um novo escopo aninhado
         self.semantico.entra_escopo()
         self.consome(TOKEN.abreChaves)
+        self.semantico.mais_indent()
         self.stmtList()
+        self.semantico.menos_indent()
         self.consome(TOKEN.fechaChaves)
         self.semantico.sai_escopo()
 
@@ -205,16 +238,40 @@ class Sintatico:
             exit(1)
 
     def forStmt(self):
-        # ForStmt -> for ( Expr ; OptExpr ; OptExpr ) Stmt
         self.consome(TOKEN.FOR)
         self.consome(TOKEN.abreParenteses)
-        self.expr()
+
+        # init
+        if self.lexico.tokenLido[0] != TOKEN.pontoVirgula:
+            init = self.expr()
+            self.semantico.gera(self.semantico.indent, init[3] + "\n")
         self.consome(TOKEN.pontoVirgula)
-        self.optExpr()
+
+        # cond
+        if self.lexico.tokenLido[0] != TOKEN.pontoVirgula:
+            cond = self.expr()
+        else:
+            cond = (TOKEN.valorInt, False, False, "True")
         self.consome(TOKEN.pontoVirgula)
-        self.optExpr()
+
+        # inc
+        increment = None
+        if self.lexico.tokenLido[0] != TOKEN.fechaParenteses:
+            increment = self.expr()
+
         self.consome(TOKEN.fechaParenteses)
-        self.stmt()
+
+        # gera while
+        self.semantico.gera(self.semantico.indent, f"while {cond[3]}:\n")
+        self.semantico.mais_indent()
+
+        self.stmt()  # corpo do for
+
+        # incremento após o corpo
+        if increment:
+            self.semantico.gera(self.semantico.indent, increment[3] + "\n")
+
+        self.semantico.menos_indent()
 
     def optExpr(self):
         # OptExpr -> Expr | LAMBDA
@@ -240,17 +297,30 @@ class Sintatico:
         # WhileStmt -> while ( Expr ) Stmt
         self.consome(TOKEN.WHILE)
         self.consome(TOKEN.abreParenteses)
-        self.expr()
+        cond = self.expr()
         self.consome(TOKEN.fechaParenteses)
+
+        #Gera código:
+        self.semantico.gera(self.semantico.indent, f"while {cond[3]}:\n")
+        self.semantico.mais_indent()
+
         self.stmt()
+        self.semantico.menos_indent()
 
     def ifStmt(self):
         # IfStmt -> if ( Expr ) Stmt ElsePart
         self.consome(TOKEN.IF)
         self.consome(TOKEN.abreParenteses)
-        self.expr()
+        #Pega o código gerado pela expressão
+        cond = self.expr()
         self.consome(TOKEN.fechaParenteses)
+
+        #Gera código:
+        self.semantico.gera(self.semantico.indent, f"if {cond[3]}:\n")
+        self.semantico.mais_indent()
+
         self.stmt()
+        self.semantico.menos_indent()
         self.elsePart()
 
     def elsePart(self):
@@ -270,7 +340,14 @@ class Sintatico:
 
         if token == TOKEN.ELSE:
             self.consome(TOKEN.ELSE)
+
+            #Gera código:
+            self.semantico.gera(self.semantico.indent, "else:\n")
+            self.semantico.mais_indent()
+
             self.stmt()
+            self.semantico.menos_indent()
+
         elif token in primeiros_follow_stmt:
             return
         else:
@@ -325,6 +402,9 @@ class Sintatico:
         nome_variavel = self.lexico.tokenLido[1]
         self.consome(TOKEN.ident)
         eh_vetor = self.opcIdentDeclar()
+
+        #Não precisa ser escrita no código python
+        #Declara
         self.semantico.declaraVariavel(nome_variavel, tipo, eh_vetor)
 
     # Retorna True se for um vetor, False caso contrário
@@ -378,7 +458,27 @@ class Sintatico:
             except Exception as e:
                 raise Exception(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
 
-            tipo_resultado = (tipo_direita[0], tipo_esquerda[1], False)
+            # aplicar coerções finais para atribuição
+            codigo_esq = tipo_esquerda[3]
+            codigo_dir = tipo_direita[3]
+            tipo_dest = tipo_esquerda[0]
+            tipo_src = tipo_direita[0]
+
+            # char -> int (ord) se destino é int
+            if tipo_dest == TOKEN.valorInt and tipo_src == TOKEN.valorChar:
+                codigo_dir = f"ord({codigo_dir})"
+            # int -> float se destino é float
+            if tipo_dest == TOKEN.valorFloat and tipo_src == TOKEN.valorInt:
+                codigo_dir = f"float({codigo_dir})"
+            # float -> int (se você permite) - atualmente seu verifica_tipo já permite; aqui você pode truncar:
+            if tipo_dest == TOKEN.valorInt and tipo_src == TOKEN.valorFloat:
+                codigo_dir = f"int({codigo_dir})"
+
+            # gera codigo da atribuição
+            self.semantico.gera(self.semantico.indent, f"{codigo_esq} = {codigo_dir}\n")
+
+            # resultado da atribuição é o valor atribuído (mas não lvalue)
+            tipo_resultado = (tipo_esquerda[0], tipo_esquerda[1], False, codigo_esq)
 
             return self.restoExpr(tipo_resultado)
 
@@ -408,10 +508,16 @@ class Sintatico:
             self.consome(TOKEN.AND)
             tipo_direita = self.nao()
 
+            # extrai códigos
+            code_l = tipo_esquerda[3]
+            code_r = tipo_direita[3]
+
+            # valida operação semântica
             op = [tipo_esquerda, TOKEN.AND, tipo_direita]
             tipo_result_op = self.semantico.verifica_operacao(op)
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            code = f"({code_l} and {code_r})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoLog(tipo_para_proximo)
 
@@ -419,10 +525,14 @@ class Sintatico:
             self.consome(TOKEN.OR)
             tipo_direita = self.nao()
 
+            code_l = tipo_esquerda[3]
+            code_r = tipo_direita[3]
+
             op = [tipo_esquerda, TOKEN.OR, tipo_direita]
             tipo_result_op = self.semantico.verifica_operacao(op)
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            code = f"({code_l} or {code_r})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoLog(tipo_para_proximo)
 
@@ -449,7 +559,8 @@ class Sintatico:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
                 exit(1)
 
-            return tipo_resultante_op[0], tipo_resultante_op[1], False
+            code = f"(not {tipo_filho[3]})"
+            return tipo_resultante_op[0], tipo_resultante_op[1], False, code
 
         else:
             return self.rel()
@@ -471,13 +582,20 @@ class Sintatico:
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
         if token == TOKEN.opRel:
+            opLex = lexema
+
             self.consome(TOKEN.opRel)
             tipo_direita = self.soma()
+
+            # extrai códigos
+            code_l = tipo_esquerda[3]
+            code_r = tipo_direita[3]
 
             op = [tipo_esquerda, TOKEN.opRel, tipo_direita]
             tipo_result_op = self.semantico.verifica_operacao(op)
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            code = f"({code_l} {opLex} {code_r})"
+            tipo_para_proximo = tipo_result_op[0], tipo_result_op[1], False, code
 
             return  tipo_para_proximo
 
@@ -502,12 +620,28 @@ class Sintatico:
             self.consome(TOKEN.mais)
             tipo_direita = self.mult()  # (TIPO, VET, LVALUE)
 
-            # Passo 3: Validar Operação
-            op = [tipo_esquerda, TOKEN.mais, tipo_direita]
-            tipo_result_op = self.semantico.verifica_operacao(op)  # Retorna (TIPO, VET)
+            # extraí códigos
+            tL, vL, lL, codeL = tipo_esquerda
+            tR, vR, lR, codeR = tipo_direita
 
+            # coerções simples:
+            if tL == TOKEN.valorChar:
+                codeL = f"ord({codeL})"; tL = TOKEN.valorInt
+            if tR == TOKEN.valorChar:
+                codeR = f"ord({codeR})"; tR = TOKEN.valorInt
+
+            # se um é float e outro int, converte int para float
+            if tL == TOKEN.valorInt and tR == TOKEN.valorFloat:
+                codeL = f"float({codeL})"; tL = TOKEN.valorFloat
+            if tL == TOKEN.valorFloat and tR == TOKEN.valorInt:
+                codeR = f"float({codeR})"; tR = TOKEN.valorFloat
+
+            op = [(tL, vL), TOKEN.mais, (tR, vR)]
+            tipo_result_op = self.semantico.verifica_operacao([(tL, vL), TOKEN.mais, (tR, vR)])
+
+            code = f"({codeL} + {codeR})"
             # Resultado de a+b não é L-value
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoSoma(tipo_para_proximo)
 
@@ -515,10 +649,23 @@ class Sintatico:
             self.consome(TOKEN.menos)
             tipo_direita = self.mult()
 
-            op = [tipo_esquerda, TOKEN.menos, tipo_direita]
-            tipo_result_op = self.semantico.verifica_operacao(op)
+            tL, vL, lL, codeL = tipo_esquerda
+            tR, vR, lR, codeR = tipo_direita
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            if tL == TOKEN.valorChar:
+                codeL = f"ord({codeL})"; tL = TOKEN.valorInt
+            if tR == TOKEN.valorChar:
+                codeR = f"ord({codeR})"; tR = TOKEN.valorInt
+
+            if tL == TOKEN.valorInt and tR == TOKEN.valorFloat:
+                codeL = f"float({codeL})"; tL = TOKEN.valorFloat
+            if tL == TOKEN.valorFloat and tR == TOKEN.valorInt:
+                codeR = f"float({codeR})"; tR = TOKEN.valorFloat
+
+            tipo_result_op = self.semantico.verifica_operacao([ (tL, vL), TOKEN.menos, (tR, vR) ])
+
+            code = f"({codeL} - {codeR})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoSoma(tipo_para_proximo)
 
@@ -540,10 +687,23 @@ class Sintatico:
             self.consome(TOKEN.multiplicacao)
             tipo_direita = self.uno()
 
-            op = [tipo_esquerda, TOKEN.multiplicacao, tipo_direita]
-            tipo_result_op = self.semantico.verifica_operacao(op)
+            tL, vL, lL, codeL = tipo_esquerda
+            tR, vR, lR, codeR = tipo_direita
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            if tL == TOKEN.valorChar:
+                codeL = f"ord({codeL})"; tL = TOKEN.valorInt
+            if tR == TOKEN.valorChar:
+                codeR = f"ord({codeR})"; tR = TOKEN.valorInt
+
+            if tL == TOKEN.valorInt and tR == TOKEN.valorFloat:
+                codeL = f"float({codeL})"; tL = TOKEN.valorFloat
+            if tL == TOKEN.valorFloat and tR == TOKEN.valorInt:
+                codeR = f"float({codeR})"; tR = TOKEN.valorFloat
+
+            tipo_result_op = self.semantico.verifica_operacao([(tL, vL), TOKEN.multiplicacao, (tR, vR)])
+
+            code = f"({codeL} * {codeR})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoMult(tipo_para_proximo)
 
@@ -551,10 +711,23 @@ class Sintatico:
             self.consome(TOKEN.divisao)
             tipo_direita = self.uno()
 
-            op = [tipo_esquerda, TOKEN.divisao, tipo_direita]
-            tipo_result_op = self.semantico.verifica_operacao(op)
+            tL, vL, lL, codeL = tipo_esquerda
+            tR, vR, lR, codeR = tipo_direita
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            if tL == TOKEN.valorChar:
+                codeL = f"ord({codeL})"; tL = TOKEN.valorInt
+            if tR == TOKEN.valorChar:
+                codeR = f"ord({codeR})"; tR = TOKEN.valorInt
+
+            if tL == TOKEN.valorInt and tR == TOKEN.valorFloat:
+                codeL = f"float({codeL})"; tL = TOKEN.valorFloat
+            if tL == TOKEN.valorFloat and tR == TOKEN.valorInt:
+                codeR = f"float({codeR})"; tR = TOKEN.valorFloat
+
+            tipo_result_op = self.semantico.verifica_operacao([(tL, vL), TOKEN.divisao, (tR, vR)])
+
+            code = f"({codeL} / {codeR})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoMult(tipo_para_proximo)
 
@@ -562,10 +735,23 @@ class Sintatico:
             self.consome(TOKEN.porcentagem)
             tipo_direita = self.uno()
 
-            op = [tipo_esquerda, TOKEN.porcentagem, tipo_direita]
-            tipo_result_op = self.semantico.verifica_operacao(op)
+            tL, vL, lL, codeL = tipo_esquerda
+            tR, vR, lR, codeR = tipo_direita
 
-            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False)
+            if tL == TOKEN.valorChar:
+                codeL = f"ord({codeL})"; tL = TOKEN.valorInt
+            if tR == TOKEN.valorChar:
+                codeR = f"ord({codeR})"; tR = TOKEN.valorInt
+
+            if tL == TOKEN.valorInt and tR == TOKEN.valorFloat:
+                codeL = f"float({codeL})"; tL = TOKEN.valorFloat
+            if tL == TOKEN.valorFloat and tR == TOKEN.valorInt:
+                codeR = f"float({codeR})"; tR = TOKEN.valorFloat
+
+            tipo_result_op = self.semantico.verifica_operacao([(tL, vL), TOKEN.porcentagem, (tR, vR)])
+
+            code = f"({codeL} % {codeR})"
+            tipo_para_proximo = (tipo_result_op[0], tipo_result_op[1], False, code)
 
             return self.restoMult(tipo_para_proximo)
 
@@ -589,7 +775,8 @@ class Sintatico:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
                 exit(1)
 
-            return tipo_resultante_op[0], tipo_resultante_op[1], False
+            code = f"(+{tipo_filho[3]})"
+            return (tipo_resultante_op[0], tipo_resultante_op[1], False, code)
 
         elif token == TOKEN.menos:
             self.consome(TOKEN.menos)
@@ -604,7 +791,8 @@ class Sintatico:
                 print(f"Erro Semântico na Linha {linha}, Coluna {coluna}: {e}")
                 exit(1)
 
-            return tipo_resultante_op[0], tipo_resultante_op[1], False
+            code = f"(-{tipo_filho[3]})"
+            return tipo_resultante_op[0], tipo_resultante_op[1], False, code
 
         else:
             return self.folha()
@@ -618,26 +806,26 @@ class Sintatico:
             self.consome(TOKEN.abreParenteses)
             tipo = self.expr()
             self.consome(TOKEN.fechaParenteses)
-            return tipo[0], tipo[1], False
+            return tipo[0], tipo[1], False, lexema
 
         elif token == TOKEN.ident:
             return self.identifier()
 
         elif token == TOKEN.valorInt:
             self.consome(TOKEN.valorInt)
-            return TOKEN.valorInt, False, False
+            return TOKEN.valorInt, False, False, lexema
 
         elif token == TOKEN.valorFloat:
             self.consome(TOKEN.valorFloat)
-            return TOKEN.valorFloat, False, False
+            return TOKEN.valorFloat, False, False, lexema
 
         elif token == TOKEN.valorChar:
             self.consome(TOKEN.valorChar)
-            return TOKEN.valorChar, False, False
+            return TOKEN.valorChar, False, False, lexema
 
         elif token == TOKEN.valorString:
             self.consome(TOKEN.valorString)
-            return TOKEN.valorString, False, False
+            return TOKEN.valorString, False, False, lexema
 
         else:
             print(f'Erro em folha: esperado (, ident, valorInt, valorFloat, valorChar, valorString, mas veio {TOKEN.msg(token)}. Linha: {linha} Coluna: {coluna}')
@@ -659,73 +847,89 @@ class Sintatico:
 
         (token, lexema, linha, coluna) = self.lexico.tokenLido
 
+        # ===============================
+        # --- Caso 1: Acesso a vetor  ----
+        # ===============================
         if token == TOKEN.abreColchetes:
-            # se não for tupla é uma função
+
+            # se não for tupla é função (erro)
             if not isinstance(tipo, tuple):
                 raise Exception(
                     f"Erro Semântico: '{nome}' é uma função e não pode ser acessado com []. Linha: {linha}, Coluna: {coluna}")
 
-            # verificar se é vetor a partir da tupla
+            # verificar se é vetor
             if not tipo[1]:
-                raise Exception(f"Erro Semântico: '{nome}' não é um vetor e não pode ser acessado com []. Linha: {linha}, Coluna: {coluna}")
+                raise Exception(
+                    f"Erro Semântico: '{nome}' não é um vetor e não pode ser acessado com []. Linha: {linha}, Coluna: {coluna}")
 
             self.consome(TOKEN.abreColchetes)
             tipo_indice = self.expr()
 
-            # verifica se é inteiro, já que indices só podem ser inteiros
+            # índice deve ser int
             self.semantico.verifica_tipo(TOKEN.valorInt, tipo_indice[0])
 
             self.consome(TOKEN.fechaColchetes)
 
-            # Retorna o valor daquela posição do vetor, que não é um vetor
-            return tipo[0], False, True
+            # código python
+            codigo = f"{nome}[{tipo_indice[3]}]"
 
+            return (tipo[0], False, True, codigo)
+
+        # ===============================
+        # ----- Caso 2: Chamada ---------
+        # ===============================
         elif token == TOKEN.abreParenteses:
-            # Validação Semântica 1: Símbolo é uma função (list)?
-            if not isinstance(tipo, list):
-                raise Exception(f"Erro Semântico: '{nome}' não é uma função. Linha: {linha}, Coluna: {coluna}")
 
-            assinatura_func = tipo
-            tipo_retorno = assinatura_func[0]  # (TIPO_RETORNO, False)
-            params_esperados = assinatura_func[1:]  # [(TIPO_ARG1, VET_ARG1), ...]
+            if not isinstance(tipo, list):
+                raise Exception(
+                    f"Erro Semântico: '{nome}' não é uma função. Linha: {linha}, Coluna: {coluna}")
+
+            assinatura = tipo
+            tipo_retorno = assinatura[0]
+            params_esperados = assinatura[1:]
 
             self.consome(TOKEN.abreParenteses)
-
-            # Pega os tipos dos argumentos passados na chamada
             tipos_passados = self.params()
-
             self.consome(TOKEN.fechaParenteses)
 
-            # Validação Semântica 2: Número de argumentos bate?
+            # valida número de argumentos
             if len(params_esperados) != len(tipos_passados):
                 raise Exception(
                     f"Erro Semântico: Função '{nome}' esperava {len(params_esperados)} argumentos, mas recebeu {len(tipos_passados)}. Linha: {linha}, Coluna: {coluna}")
 
-            # Validação Semântica 3: Tipos dos argumentos batem?
+            # valida tipos
             for i in range(len(params_esperados)):
-                tipo_esperado = params_esperados[i]  # (TIPO, VETOR)
-                tipo_passado = tipos_passados[i]  # (TIPO, VETOR)
+                esperado = params_esperados[i]
+                passado = tipos_passados[i]
 
-                # Compara o TIPO (ex: int, float)
-                self.semantico.verifica_tipo(tipo_esperado[0], tipo_passado[0])
+                self.semantico.verifica_tipo(esperado[0], passado[0])
 
-                # Compara se é VETOR (ex: int[] vs int)
-                if tipo_esperado[1] != tipo_passado[1]:
+                if esperado[1] != passado[1]:
                     raise Exception(
-                        f"Erro Semântico: Argumento {i + 1} de '{nome}': esperado {'vetor' if tipo_esperado[1] else 'não-vetor'}, mas recebeu {'vetor' if tipo_passado[1] else 'não-vetor'}. Linha: {linha}, Coluna: {coluna}")
+                        f"Erro Semântico: Argumento {i + 1} de '{nome}' deveria ser "
+                        f"{'vetor' if esperado[1] else 'simples'}, mas veio "
+                        f"{'vetor' if passado[1] else 'simples'}. Linha: {linha}, Coluna: {coluna}")
 
-            # Resultado: O tipo de retorno da função
-            return tipo_retorno[0], tipo_retorno[1], False
+            # gerar código da chamada
+            codigos = ", ".join([p[3] for p in tipos_passados])
+
+            if nome in {"putstr", "putint", "putchar", "getint"}:
+                code = self.semantico.gera_chamada_builtin(nome, codigos)
+            else:
+                code = f"{nome}({codigos})"
+
+            return tipo_retorno[0], tipo_retorno[1], False, code
+
+        # ===============================
+        # ----- Caso 3: variável --------
+        # ===============================
         else:
-            # CASO: LAMBDA (uso de variável simples, 'a', ou passagem de vetor 'v')
-
-            # Validação Semântica: Não pode ser uma função (função *precisa* ser chamada)
             if isinstance(tipo, list):
                 raise Exception(
                     f"Erro Semântico: '{nome}' é uma função e deve ser chamada com (). Linha: {linha}, Coluna: {coluna}")
 
-            # Resultado: O tipo da própria variável (seja int ou int[])
-            return tipo[0], tipo[1], True
+            return (tipo[0], tipo[1], True, nome)
+
     def params(self):
         # Params -> Expr RestoParams | LAMBDA
         # Retorna uma lista de tuplas de tipo: [(TIPO, VET), (TIPO, VET), ...]
@@ -761,6 +965,3 @@ class Sintatico:
 
         # Caso LAMBDA (fim da lista de argumentos)
         return
-
-
-#todo: Passo 4: Validar atribuições (tipo, leftValue)
